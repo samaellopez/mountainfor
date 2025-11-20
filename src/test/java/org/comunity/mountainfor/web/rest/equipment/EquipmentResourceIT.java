@@ -48,7 +48,7 @@ class EquipmentResourceIT {
             .body("id", notNullValue())
             .extract();
         
-        Long equipmentId = response.path("id");
+        Integer equipmentId = response.path("id");
         
         // Then - Retrieve equipment by ID
         given()
@@ -56,7 +56,7 @@ class EquipmentResourceIT {
             .get("/api/equipment/" + equipmentId)
             .then()
             .statusCode(200)
-            .body("id", equalTo(equipmentId.intValue()))
+            .body("id", equalTo(equipmentId))
             .body("code", equalTo("EQ-TEST-001"))
             .body("status", equalTo("ACTIVE"));
     }
