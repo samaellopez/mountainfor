@@ -367,3 +367,136 @@ El sistema está preparado para agregar:
 - Hexagonal Architecture (Alistair Cockburn)
 - Domain-Driven Design (Eric Evans)
 - Quarkus Documentation: https://quarkus.io
+
+## 🆕 Nuevas Funcionalidades Implementadas
+
+### Inventario de Repuestos (Spare Parts)
+
+#### Dominio
+- **SparePart**: Entidad de dominio con stock actual, mínimo y máximo
+- **InventoryMovement**: Movimientos de entrada/salida de inventario
+- **MovementType**: ENTRY (entrada) / EXIT (salida)
+
+#### Reglas de Negocio
+- Validación de código único de repuesto
+- Control de stock: no permite consumir más de lo disponible
+- Alertas automáticas cuando el stock está bajo el mínimo
+- Los movimientos de salida se vinculan a órdenes de trabajo
+
+#### API REST
+```
+POST /api/spareparts - Crear repuesto
+GET /api/spareparts/{id} - Obtener por ID
+GET /api/spareparts - Listar todos
+GET /api/spareparts/below-minimum - Repuestos con stock bajo mínimo
+POST /api/spareparts/consume - Consumir repuestos
+```
+
+#### Ejemplo de Uso
+```json
+POST /api/spareparts
+{
+  "code": "REP-001",
+  "description": "Filtro de aceite",
+  "unitOfMeasure": "unidad",
+  "minimumStock": 10,
+  "maximumStock": 50,
+  "location": "Almacén A",
+  "unitPrice": 45.50
+}
+
+POST /api/spareparts/consume
+{
+  "sparePartId": 1,
+  "quantity": 2,
+  "reason": "Mantenimiento preventivo",
+  "workOrderId": 5,
+  "performedBy": "Juan Pérez"
+}
+```
+
+### Costos de Mantenimiento (Work Order Costs)
+
+#### Dominio
+- **WorkOrderCost**: Calcula costos totales automáticamente
+- Componentes: costoManoObra + costoRepuestos + otrosCostos = costoTotal
+
+#### Reglas de Negocio
+- Cálculo automático de costos de repuestos basado en movimientos de inventario
+- Suma de costos: mano de obra + repuestos + otros
+- Un costo por orden de trabajo (relación 1:1)
+
+#### API REST
+```
+POST /api/costs/calculate - Calcular costos de OT
+GET /api/costs/workorder/{id} - Obtener costos por OT
+```
+
+#### Ejemplo de Uso
+```json
+POST /api/costs/calculate
+{
+  "workOrderId": 5,
+  "laborCost": 500.00,
+  "otherCosts": 50.00
+}
+
+Response:
+{
+  "id": 1,
+  "workOrderId": 5,
+  "laborCost": 500.00,
+  "sparePartsCost": 91.00,  // Calculado automáticamente
+  "otherCosts": 50.00,
+  "totalCost": 641.00  // Suma automática
+}
+```
+
+### Flujo Integrado
+
+1. **Crear Equipo**
+   ```
+   POST /api/equipment
+   ```
+
+2. **Crear Orden de Trabajo Correctiva**
+   ```
+   POST /api/workorders/corrective
+   ```
+
+3. **Consumir Repuestos en la OT**
+   ```
+   POST /api/spareparts/consume
+   → Reduce stock automáticamente
+   → Registra movimiento vinculado a OT
+   ```
+
+4. **Calcular Costos de la OT**
+   ```
+   POST /api/costs/calculate
+   → Calcula costo de repuestos consumidos
+   → Suma mano de obra y otros costos
+   → Retorna costo total
+   ```
+
+5. **Consultar Stock Bajo Mínimo**
+   ```
+   GET /api/spareparts/below-minimum
+   → Alerta de repuestos a reabastecer
+   ```
+
+### Tablas de Base de Datos
+
+#### spare_part
+- id, code (unique), description, unit_of_measure
+- current_stock, minimum_stock, maximum_stock
+- location, unit_price
+
+#### inventory_movement
+- id, spare_part_id (FK), type, quantity
+- reason, work_order_id (FK), movement_date, performed_by
+
+#### work_order_cost
+- id, work_order_id (FK, unique)
+- labor_cost, spare_parts_cost, other_costs, total_cost
+
